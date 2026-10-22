@@ -26,12 +26,11 @@
     <header><div class="brand"><i></i>replymate</div><button class="offline" id="settingsBtn" onclick="openSettings()">⚙ Server settings</button></header>
     <section class="setup" id="setup">
       <div class="eyebrow">AI review reply assistant</div><h1>Replies that sound like you.</h1><p class="lead">A quick setup, then write thoughtful customer-review responses with AI in seconds.</p>
-      <div class="steps"><div class="step on"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
+      <div class="steps"><div class="step on"></div><div class="step"></div><div class="step"></div></div>
       <div class="card">
         <div class="question active" data-step="0"><h2>What kind of business do you have?</h2><p class="hint">We’ll shape every response around your business.</p><label for="business">Business type</label><input id="business" placeholder="e.g. Italian restaurant, hair salon, boutique hotel" autofocus><div class="actions"><span></span><button class="next" onclick="go(1)">Continue →</button></div></div>
         <div class="question" data-step="1"><h2>Show us your voice <em style="font-size:13px;color:#718099;font-style:normal;font-weight:500">(optional)</em></h2><p class="hint">Paste one or two past replies. This helps the AI match your natural voice.</p><textarea id="examples" placeholder="Thank you so much for visiting us! We’re thrilled you enjoyed…"></textarea><div class="actions"><button class="back" onclick="go(0)">← Back</button><span><button class="skip" onclick="go(2)">Skip</button><button class="next" onclick="go(2)">Continue →</button></span></div></div>
-        <div class="question" data-step="2"><h2>Which tone do you prefer?</h2><p class="hint">You can adjust this later, any time.</p><div class="options" id="tones"><div class="option selected" data-value="Friendly"><strong>Friendly</strong><small>Warm, appreciative, and personable</small></div><div class="option" data-value="Business"><strong>Business</strong><small>Polished, professional, and clear</small></div><div class="option" data-value="Casual"><strong>Casual</strong><small>Relaxed, conversational, and upbeat</small></div></div><div class="actions"><button class="back" onclick="go(1)">← Back</button><button class="next" onclick="go(3)">Continue →</button></div></div>
-        <div class="question" data-step="3"><h2>Connect your Replymate server</h2><p class="hint">Replymate calls a small server you host to generate replies with AI. Paste its address below. (Ask whoever set this up for you if you're not sure.)</p><label for="serverUrl">Server URL</label><input id="serverUrl" placeholder="https://your-replymate-backend.onrender.com"><div class="actions"><button class="back" onclick="go(2)">← Back</button><button class="next" onclick="start()">Open app →</button></div></div>
+        <div class="question" data-step="2"><h2>Which tone do you prefer?</h2><p class="hint">You can adjust this later, any time.</p><div class="options" id="tones"><div class="option selected" data-value="Friendly"><strong>Friendly</strong><small>Warm, appreciative, and personable</small></div><div class="option" data-value="Business"><strong>Business</strong><small>Polished, professional, and clear</small></div><div class="option" data-value="Casual"><strong>Casual</strong><small>Relaxed, conversational, and upbeat</small></div></div><div class="actions"><button class="back" onclick="go(1)">← Back</button><button class="next" onclick="start()">Open app →</button></div></div>
       </div>
     </section>
     <section id="app"><div class="topline"><div><div class="eyebrow" id="businessLabel">YOUR BUSINESS</div><h1>Write a review reply</h1></div><div class="quota" id="quota"></div><button class="new" onclick="resetApp()">Edit setup</button></div><div class="grid"><div class="panel"><h3>Customer’s review</h3><textarea id="review" placeholder="Paste a customer review here…"></textarea><label for="rating">Star rating</label><select id="rating"><option value="5">★★★★★  5 stars</option><option value="4">★★★★☆  4 stars</option><option value="3">★★★☆☆  3 stars</option><option value="2">★★☆☆☆  2 stars</option><option value="1">★☆☆☆☆  1 star</option></select><button class="generate" id="genBtn" onclick="generate()"><span class="spin"></span><span id="genLabel">Generate reply</span></button></div><div class="panel"><h3>Your reply</h3><div class="result" id="result">Your tailored reply will appear here.</div><button class="copy" onclick="copyReply()">Copy reply</button><div class="status" id="status">Choose a review to get started.</div></div></div></section>
@@ -48,6 +47,10 @@
   </dialog>
 
   <script>
+    // Baked-in backend so Replymate works with zero setup for anyone who opens this page.
+    // Change this if you ever redeploy the backend to a new URL.
+    const DEFAULT_SERVER_URL = 'https://replymate-bkap.onrender.com';
+
     let tone='Friendly', plan='free', limit=5, current=0;
     const qs=[...document.querySelectorAll('.question')], bars=[...document.querySelectorAll('.step')];
     function go(n){ if(n===1&&!business.value.trim()){business.focus();business.placeholder='Please add your business type first';return} current=n;qs.forEach((q,i)=>q.classList.toggle('active',i===n));bars.forEach((b,i)=>b.classList.toggle('on',i<=n)); }
@@ -56,17 +59,17 @@
     function normalizeUrl(u){ u=(u||'').trim(); if(!u) return ''; return u.replace(/\/+$/,''); }
 
     function start(){
-      const serverUrl = normalizeUrl(document.getElementById('serverUrl').value);
-      const profile={business:business.value.trim(),examples:examples.value.trim(),tone,serverUrl};
+      const profile={business:business.value.trim(),examples:examples.value.trim(),tone};
       try{localStorage.setItem('replymateProfile',JSON.stringify(profile));}catch(e){}
       openApp(profile);
     }
     function openApp(p){ document.getElementById('setup').style.display='none';document.getElementById('app').style.display='block';businessLabel.textContent=p.business.toUpperCase();updateQuota(); }
 
     function getProfile(){ try{return JSON.parse(localStorage.getItem('replymateProfile'))||{};}catch(e){return {};} }
-    function updateQuota(){ const p=getProfile(); quota.textContent = p.serverUrl ? '' : 'No server connected — set one in ⚙ Server settings'; }
+    function getServerUrl(){ const p=getProfile(); return p.serverUrl || DEFAULT_SERVER_URL; }
+    function updateQuota(){ quota.textContent=''; }
 
-    function openSettings(){ const p=getProfile(); document.getElementById('settingsUrl').value = p.serverUrl || ''; document.getElementById('settingsDialog').showModal(); }
+    function openSettings(){ document.getElementById('settingsUrl').value = getServerUrl(); document.getElementById('settingsDialog').showModal(); }
     function saveSettings(){ const p=getProfile(); p.serverUrl = normalizeUrl(document.getElementById('settingsUrl').value); try{localStorage.setItem('replymateProfile',JSON.stringify(p));}catch(e){} document.getElementById('settingsDialog').close(); updateQuota(); }
 
     async function generate(){
@@ -77,13 +80,13 @@
       const label = document.getElementById('genLabel');
 
       if(!text){ review.focus(); return; }
-      if(!p.serverUrl){ statusEl.textContent='Connect a server first (⚙ Server settings).'; statusEl.className='status err'; return; }
+      const serverUrl = getServerUrl();
 
       btn.disabled = true; btn.classList.add('loading'); label.textContent = 'Generating…';
       statusEl.textContent = ''; statusEl.className = 'status';
 
       try{
-        const res = await fetch(p.serverUrl + '/generate', {
+        const res = await fetch(serverUrl + '/generate', {
           method:'POST',
           headers:{'content-type':'application/json'},
           body: JSON.stringify({ review:text, rating: rating.value, business:p.business, tone:p.tone, examples:p.examples })
@@ -97,7 +100,7 @@
         result.textContent = data.reply || '(empty response)';
         statusEl.textContent = 'Reply generated in your ' + (p.tone||'Friendly').toLowerCase() + ' voice.';
       }catch(e){
-        statusEl.textContent = "Couldn't reach the server. Check the server URL in Settings, or that the server is awake.";
+        statusEl.textContent = "Couldn't reach the server right now. It may be waking up from sleep — wait about a minute and try again.";
         statusEl.className = 'status err';
       }finally{
         btn.disabled = false; btn.classList.remove('loading'); label.textContent = 'Generate reply';
@@ -108,7 +111,7 @@
     function resetApp(){document.getElementById('app').style.display='none';document.getElementById('setup').style.display='block';go(0)}
 
     let saved; try{saved=localStorage.getItem('replymateProfile');}catch(e){saved=null}
-    if(saved) { try{const p=JSON.parse(saved); if(p.business){ business.value=p.business; examples.value=p.examples||''; tone=p.tone||'Friendly'; document.getElementById('serverUrl').value=p.serverUrl||''; openApp(p); } }catch(e){} }
+    if(saved) { try{const p=JSON.parse(saved); if(p.business){ business.value=p.business; examples.value=p.examples||''; tone=p.tone||'Friendly'; openApp(p); } }catch(e){} }
   </script>
 </body>
 </html>
