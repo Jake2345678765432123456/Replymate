@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Rivo — AI Review Reply Writer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink:#1B1D16; --muted:#726D60; --line:#E1DCCC;
+      --paper:#F3EFE6; --surface:#FFFFFF;
+      --forest:#1E4638; --forest-dark:#122E24; --forest-soft:#E7EEE9;
+      --violet:#53458F; --violet-dark:#372C66; --violet-soft:#EBE8F5;
+      --amber:#AD7A23; --amber-soft:#F3E9D6;
+      --bubble:#ECE5D6;
+      --danger:#A4342A; --danger-tint:#FBEAE8;
+      --r:10px; --r-lg:18px;
+      --ease:cubic-bezier(.16,1,.3,1);
+      padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+    * { box-sizing:border-box }
+    body {
+      margin:0; min-height:100vh; color:var(--ink); font:15px/1.6 Inter, ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing:antialiased;
+      background-color:var(--paper);
+      background-image:radial-gradient(circle, #1B1D1612 1px, transparent 1px);
+      background-size:24px 24px;
+    }
+    h1, h2 { font-family:'Fraunces', Georgia, serif; letter-spacing:-0.01em; font-weight:500; }
+    h3, h4 { font-family:Inter, sans-serif; }
+    button { font-family:inherit; }
+    svg { display:block; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+    }
+    :focus-visible { outline:2px solid var(--violet); outline-offset:2px; }
+
+    .shell { max-width:1360px; margin:auto; padding:26px 32px 72px; }
+
+    /* ---------- Wordmark ---------- */
+    .brandrow { display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; }
+    .brand { display:flex; align-items:baseline; gap:3px; font-family:'Fraunces', serif; font-weight:600; font-size:20px; letter-spacing:-0.01em; color:var(--ink); }
+    .brand .dot { color:var(--violet); }
+
+    /* ---------- Setup ---------- */
+    .setup { max-width:1200px; margin:auto; min-height:calc(100vh - 140px); display:flex; flex-direction:column; justify-content:center; }
+    .setup-grid { display:grid; grid-template-columns:1fr; gap:36px; width:100%; align-items:center; }
+    .setup-intro { display:none; }
+    .setup-col { max-width:480px; margin:auto; width:100%; }
+    .kicker { color:var(--muted); font-weight:500; font-size:13.5px; margin-bottom:14px; }
+    .kicker::before { content:'✦'; color:var(--violet); margin-right:7px; font-size:11px; }
+    h1 { font-size:clamp(32px,4.6vw,46px); line-height:1.08; margin:0 0 16px; }
+    .lead { color:var(--muted); font-size:16.5px; margin:0 0 30px; max-width:46ch; }
+
+    .steps-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; }
+    .steps-row .steplabel { font-size:13px; color:var(--muted); font-weight:500; }
+    .steps { display:flex; gap:5px; }
+    .step { height:3px; width:28px; border-radius:2px; background:var(--line); transition:background .4s var(--ease); }
+    .step.on { background:var(--violet); }
+
+    .card {
+      background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:36px;
+      box-shadow:0 1px 2px #1B1D1608, 0 18px 40px -16px #1B1D161f;
+      transform:rotate(-0.6deg); transition:transform .5s var(--ease), box-shadow .5s var(--ease);
+    }
+    .card:focus-within, .card:hover { transform:rotate(0deg); box-shadow:0 1px 2px #1B1D1608, 0 22px 46px -14px #1B1D1628; }
+    .question { display:none; }
+    .question.active { display:block; animation:in .5s var(--ease); }
+    @keyframes in { from { opacity:0; transform:translateY(10px) } }
+
+    @media(min-width:960px) {
+      .setup-grid { grid-template-columns:1fr 1fr; gap:80px; }
+      .setup-intro { display:flex; flex-direction:column; justify-content:center; }
+      .setup-intro h1 { font-size:clamp(40px,3.6vw,58px); margin-bottom:18px; }
+      .setup-intro .lead { font-size:17.5px; max-width:40ch; }
+      .setup-col { margin:0; }
+      .card { padding:42px; }
+      .setup-intro-mobile { display:none; }
+    }
+
+    .reveal { opacity:0; transform:translateY(14px); animation:revealIn .7s var(--ease) forwards; }
+    .reveal.r2 { animation-delay:.08s; }
+    @keyframes revealIn { to { opacity:1; transform:translateY(0); } }
+
+    h2 { margin:0 0 6px; font-size:22px; }
+    .hint { margin:0 0 22px; color:var(--muted); font-size:14px; }
+    label { display:block; font-weight:600; font-size:13px; margin:18px 0 7px; color:var(--ink); }
+    input, textarea {
+      width:100%; border:1px solid var(--line); border-radius:var(--r); padding:11px 13px;
+      font:inherit; color:var(--ink); background:#FCFBF8; outline:none; transition:border-color .2s var(--ease), box-shadow .2s var(--ease);
+    }
+    input:focus, textarea:focus { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
+    textarea { min-height:110px; resize:vertical; font-family:inherit; }
+
+    .options { display:grid; gap:8px; }
+    .option { border:1px solid var(--line); border-radius:var(--r); padding:13px 16px; cursor:pointer; transition:border-color .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease); position:relative; background:#FCFBF8; }
+    .option:hover { border-color:#C9C2AE; transform:translateY(-1px); }
+    .option.selected { border-color:var(--violet); background:var(--violet-soft); }
+    .option strong { display:block; font-size:14px; font-weight:600; }
+    .option small { color:var(--muted); font-size:13px; }
+
+    .actions { display:flex; justify-content:space-between; align-items:center; margin-top:26px; }
+    button { border:0; border-radius:999px; cursor:pointer; font-weight:600; padding:12px 22px; font-size:14px; letter-spacing:-0.003em; transition:background .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease), transform .15s var(--ease), box-shadow .25s var(--ease); }
+    button:active { transform:scale(.97); }
+    .next { color:#fff; background:var(--violet); }
+    .next:hover { background:var(--violet-dark); transform:translateY(-1px); box-shadow:0 8px 18px #372C6630; }
+    .back { color:var(--muted); background:transparent; padding-left:4px; border-radius:var(--r); }
+    .back:hover { color:var(--ink); }
+    .skip { color:var(--violet); background:transparent; }
+    .skip:hover { color:var(--violet-dark); }
+
+    /* ---------- App shell ---------- */
+    #app { display:none; }
+    .navwrap { position:sticky; top:14px; z-index:20; max-width:1360px; margin:0 auto 44px; padding:0 32px; }
+    .topbar {
+      display:flex; align-items:center; justify-content:space-between; padding:11px 18px;
+      border:1px solid var(--line); border-radius:999px; background:#FBF9F4e6;
+      backdrop-filter:blur(16px) saturate(1.3); -webkit-backdrop-filter:blur(16px) saturate(1.3);
+      box-shadow:0 10px 30px -18px #1B1D1640;
+    }
+    .topbar-left { display:flex; align-items:center; gap:30px; }
+    .navlinks { display:flex; gap:4px; }
+    .navlink { padding:8px 14px; border-radius:999px; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; background:transparent; display:flex; align-items:center; gap:7px; transition:color .25s var(--ease), background .25s var(--ease); }
+    .navlink:hover { color:var(--ink); }
+    .navlink.active { color:var(--ink); background:var(--violet-soft); }
+    .navlink .tag { font-size:10.5px; font-weight:600; color:var(--muted); border:1px solid var(--line); padding:1px 7px; border-radius:999px; background:var(--surface); }
+    .topbar-right { display:flex; align-items:center; gap:4px; }
+    .iconbtn { width:34px; height:34px; border-radius:999px; background:transparent; color:var(--muted); display:flex; align-items:center; justify-content:center; transition:background .25s var(--ease), color .25s var(--ease); padding:0; }
+    .iconbtn:hover { background:var(--violet-soft); color:var(--violet-dark); }
+    .loginbtn { background:var(--ink); color:#fff; padding:9px 18px; margin-left:8px; }
+    .loginbtn:hover { background:var(--violet-dark); }
+
+    .view { max-width:1360px; margin:0 auto; padding:0 32px 48px; opacity:0; transform:translateY(8px); pointer-events:none; position:absolute; left:0; right:0; transition:opacity .35s var(--ease), transform .35s var(--ease); }
+    .view.active { opacity:1; transform:translateY(0); pointer-events:auto; position:relative; }
+    .viewport { position:relative; }
+
+    .workspace { max-width:620px; margin:0 auto; }
+
+    .pagehead { margin-bottom:26px; }
+    .pagehead .label { color:var(--muted); font-weight:500; font-size:13.5px; margin-bottom:8px; }
+    .pagehead .label::before { content:'✦'; color:var(--violet); margin-right:7px; font-size:11px; }
+    .pagehead h1 { font-size:clamp(26px,3vw,34px); margin:0; line-height:1.15; }
+
+    /* ---------- Reply thread ---------- */
+    .thread { display:grid; grid-template-columns:1fr; grid-template-areas:"in" "compose" "out"; gap:18px; align-items:start; }
+    .bubble.in { grid-area:in; }
+    .bubble.out { grid-area:out; }
+    .composerow { grid-area:compose; }
+    .bubble { border-radius:4px 20px 20px 20px; padding:24px 26px; position:relative; min-height:230px; display:flex; flex-direction:column; }
+    .bubble.in { background:var(--bubble); }
+    .bubble.out { background:var(--violet-dark); color:#fff; border-radius:20px 4px 20px 20px; }
+    .bubble .who { font-size:12px; font-weight:600; color:var(--muted); margin-bottom:11px; display:flex; align-items:center; gap:7px; }
+    .bubble .who::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--violet); }
+    .bubble.out .who { color:#D8D3EC; }
+    .bubble.out .who::before { background:var(--forest-soft); }
+    .bubble textarea.reviewinput {
+      background:transparent; border:none; padding:0; flex:1; min-height:90px; font-family:'Fraunces', Georgia, serif; font-size:17px; line-height:1.55; color:var(--ink); resize:none;
+    }
+    .bubble textarea.reviewinput:focus { box-shadow:none; }
+    .bubble textarea.reviewinput::placeholder { color:#8C8676; font-family:'Fraunces', Georgia, serif; font-style:italic; }
+    .replytext { font-family:'Fraunces', Georgia, serif; font-size:17px; line-height:1.55; white-space:pre-wrap; flex:1; }
+    .replytext.placeholder { color:#CFC8E8; font-style:italic; }
+
+    .stars { display:flex; gap:3px; margin-top:16px; }
+    .star { padding:0; background:transparent; border-radius:6px; width:26px; height:26px; display:flex; align-items:center; justify-content:center; }
+    .star:hover { background:#1B1D1610; }
+    .star svg { width:17px; height:17px; }
+    .star.filled svg { fill:var(--amber); stroke:var(--amber); }
+    .star:not(.filled) svg { fill:none; stroke:#B6AF9B; }
+
+    .composerow { display:flex; justify-content:center; align-items:center; margin:2px 0; gap:14px; }
+    .composerow::before, .composerow::after { content:''; height:1px; flex:1; background:var(--line); }
+    .generate {
+      background:linear-gradient(120deg, var(--violet) 0%, var(--violet-dark) 72%, var(--forest) 100%); color:#fff; padding:14px 30px;
+      display:flex; align-items:center; justify-content:center; gap:9px; box-shadow:0 14px 28px -12px #372C6650; flex:none;
+    }
+    .generate:hover { box-shadow:0 16px 32px -10px #372C6670; transform:translateY(-1px); filter:brightness(1.06); }
+    .generate:disabled { opacity:.55; cursor:default; transform:none; box-shadow:none; }
+
+    .bubble-foot { display:flex; align-items:center; gap:14px; margin-top:18px; }
+    .copy { color:#fff; background:#ffffff22; border:1px solid #ffffff3d; padding:7px 14px; font-size:12.5px; }
+    .copy:hover { background:#ffffff33; }
+    .status { color:#D8D3EC; font-size:12.5px; }
+    .status.err { color:#F7CFC7; }
+
+    .voicebar { margin:22px 0 0; display:flex; flex-wrap:wrap; gap:10px; }
+    .voicebar .chip { display:flex; align-items:center; gap:7px; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:8px 16px; font-size:13px; color:var(--muted); }
+    .voicebar .chip b { color:var(--ink); font-weight:600; }
+    .voicebar .chip .sw { width:8px; height:8px; border-radius:50%; background:var(--violet); flex:none; }
+
+    /* ---------- Try-an-example chips ---------- */
+    .examplesrow { margin:22px 0 0; }
+    .examplesrow .exlabel { font-size:13px; color:var(--muted); margin-bottom:10px; }
+    .examplesrow .exchips { display:flex; flex-wrap:wrap; gap:9px; }
+    .exchip { background:var(--surface); border:1px solid var(--line); color:var(--ink); font-weight:500; font-size:13px; padding:9px 15px; display:flex; align-items:center; gap:7px; }
+    .exchip:hover { border-color:var(--violet); color:var(--violet-dark); background:var(--violet-soft); }
+    .exchip .exstars { color:var(--amber); font-size:11px; letter-spacing:1px; }
+
+    /* ---------- How it works strip ---------- */
+    .howrow { margin:48px 0 0; padding-top:34px; border-top:1px solid var(--line); display:grid; grid-template-columns:1fr; gap:22px; }
+    .how-item { display:flex; gap:14px; }
+    .how-num { font-family:'Fraunces', serif; font-size:20px; color:var(--violet); flex:none; width:28px; }
+    .how-item h4 { margin:0 0 4px; font-size:14.5px; font-weight:600; }
+    .how-item p { margin:0; color:var(--muted); font-size:13.5px; line-height:1.5; }
+
+    @media(min-width:900px) {
+      .workspace { max-width:1040px; }
+      .thread { grid-template-columns:1fr 1fr; grid-template-areas:"in out" "compose compose"; gap:34px; }
+      .bubble.in::after { content:''; position:absolute; right:-13px; top:30px; border:11px solid transparent; border-left-color:var(--bubble); }
+      .bubble.out::after { content:''; position:absolute; left:-13px; top:30px; border:11px solid transparent; border-right-color:var(--violet-dark); }
+      .composerow { margin:-6px 0; }
+      .howrow { grid-template-columns:repeat(3,1fr); }
+    }
+
+    .spin { width:14px; height:14px; border:2px solid #ffffff55; border-top-color:#fff; border-radius:50%; animation:sp .7s linear infinite; display:none; }
+    .generate.loading .spin { display:inline-block; }
+    @keyframes sp { to { transform:rotate(360deg) } }
+
+    dialog { border:1px solid var(--line); border-radius:var(--r-lg); padding:0; max-width:440px; width:90vw; box-shadow:0 20px 50px #1B1D1620; }
+    dialog::backdrop { background:#1B1D16b3; }
+    .dialog-body { padding:28px; }
+    .dialog-body h3 { margin:0 0 6px; font-size:17px; font-weight:600; }
+    .dialog-body p { color:var(--muted); margin:0 0 18px; font-size:13.5px; }
+
+    /* ---------- Team / leadership prototype ---------- */
+    .loginwrap { max-width:380px; margin:40px auto 0; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:34px; text-align:left; box-shadow:0 18px 40px -16px #1B1D161f; }
+    .loginwrap h2 { font-size:21px; margin-bottom:6px; }
+    .loginwrap .hint { margin-bottom:22px; }
+    .protonote { color:var(--muted); font-size:12.5px; margin-top:16px; line-height:1.5; }
+
+    .teamhead { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:26px; max-width:860px; margin-left:auto; margin-right:auto; }
+    .teamhead h1 { font-family:Inter, sans-serif; font-weight:700; letter-spacing:-0.015em; }
+    .signout { color:var(--muted); background:transparent; font-size:13px; font-weight:600; padding:6px 14px; }
+    .signout:hover { color:var(--ink); }
+
+    .teamgrid { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; max-width:860px; margin:0 auto; }
+    .leader {
+      background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px; display:flex; gap:14px;
+      box-shadow:0 1px 2px #1B1D1608, 0 14px 30px -16px #1B1D161c;
+      transform:rotate(var(--tilt,-0.5deg)); transition:transform .35s var(--ease), box-shadow .35s var(--ease);
+    }
+    .leader:nth-child(even) { --tilt:0.5deg; }
+    .leader:hover { transform:rotate(0deg) translateY(-2px); box-shadow:0 1px 2px #1B1D1608, 0 20px 36px -14px #1B1D1626; }
+    .avatar { width:42px; height:42px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--violet-soft); color:var(--violet-dark); font-weight:600; font-size:13px; font-family:'Fraunces', serif; border:1px solid var(--line); }
+    .leader h4 { margin:0 0 2px; font-size:15.5px; font-weight:600; font-family:'Fraunces', serif; }
+    .leader .role { color:var(--muted); font-size:12.5px; font-weight:600; margin-bottom:8px; }
+    .leader p { margin:0; color:var(--muted); font-size:13.5px; line-height:1.55; }
+
+    @media(max-width:700px) {
+      .brandrow { margin-bottom:22px; }
+      .card { padding:24px; transform:none; }
+      .navwrap { padding:0 16px; }
+      .topbar { flex-wrap:wrap; gap:10px; border-radius:20px; }
+      .topbar-left { gap:14px; }
+      .teamgrid { grid-template-columns:1fr; }
+      .bubble { max-width:100%; }
+      .shell { padding-left:16px; padding-right:16px; }
+      .view { padding-left:16px; padding-right:16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+
+    <!-- ===== Setup ===== -->
+    <section class="setup" id="setup">
+      <div class="brandrow reveal">
+        <div class="brand">Rivo<span class="dot">.</span></div>
+      </div>
+      <div class="setup-grid">
+        <div class="setup-intro reveal">
+          <div class="kicker">AI review reply assistant</div>
+          <h1>Replies that sound like you.</h1>
+          <p class="lead">Paste in what a customer wrote. Rivo writes back in your voice — no prompt‑engineering, no generic templates, no staring at a blank reply box.</p>
+        </div>
+        <div class="setup-col reveal r2">
+          <div class="setup-intro-mobile">
+            <div class="kicker">AI review reply assistant</div>
+            <h1>Replies that sound like you.</h1>
+            <p class="lead">A quick setup, then write thoughtful customer-review responses with AI in seconds.</p>
+          </div>
+          <div class="steps-row">
+            <span class="steplabel" id="stepLabel">Step 1 of 3</span>
+            <div class="steps"><div class="step on"></div><div class="step"></div><div class="step"></div></div>
+          </div>
+          <div class="card">
+            <div class="question active" data-step="0">
+              <h2>What kind of business do you have?</h2>
+              <p class="hint">We'll shape every response around your business.</p>
+              <label for="business">Business type</label>
+              <input id="business" placeholder="e.g. Italian restaurant, hair salon, boutique hotel" autofocus>
+              <div class="actions"><span></span><button class="next" onclick="go(1)">Continue</button></div>
+            </div>
+            <div class="question" data-step="1">
+              <h2>Show us your voice <em style="font-size:13px;color:var(--muted);font-style:normal;font-weight:500">(optional)</em></h2>
+              <p class="hint">Paste one or two past replies. This helps the AI match your natural voice.</p>
+              <textarea id="examples" placeholder="Thank you so much for visiting us! We're thrilled you enjoyed…"></textarea>
+              <div class="actions"><button class="back" onclick="go(0)">Back</button><span><button class="skip" onclick="go(2)">Skip</button><button class="next" onclick="go(2)">Continue</button></span></div>
+            </div>
+            <div class="question" data-step="2">
+              <h2>Which tone do you prefer?</h2>
+              <p class="hint">You can adjust this later, any time.</p>
+              <div class="options" id="tones">
+                <div class="option selected" data-value="Friendly"><strong>Friendly</strong><small>Warm, appreciative, and personable</small></div>
+                <div class="option" data-value="Business"><strong>Business</strong><small>Polished, professional, and clear</small></div>
+                <div class="option" data-value="Casual"><strong>Casual</strong><small>Relaxed, conversational, and upbeat</small></div>
+              </div>
+              <div class="actions"><button class="back" onclick="go(1)">Back</button><button class="next" onclick="start()">Open workspace</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Main app ===== -->
+    <section id="app">
+      <div class="navwrap">
+        <nav class="topbar">
+          <div class="topbar-left">
+            <div class="brand">Rivo<span class="dot">.</span></div>
+            <div class="navlinks">
+              <button class="navlink active" id="navReplies" onclick="showView('replies')">Replies</button>
+              <button class="navlink" id="navTeam" onclick="showView('team')">Team <span class="tag">Preview</span></button>
+            </div>
+          </div>
+          <div class="topbar-right">
+            <button class="iconbtn" title="Server settings" onclick="openSettings()">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+            <button class="iconbtn" title="Edit setup" onclick="resetApp()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"></path></svg>
+            </button>
+            <button class="loginbtn" onclick="showView('team')" id="navLoginBtn">Log in</button>
+          </div>
+        </nav>
+      </div>
+
+      <div class="viewport">
+      <!-- Replies view -->
+      <div class="view active" id="view-replies">
+        <div class="workspace">
+          <div class="pagehead">
+            <div class="label" id="businessLabel">Your business</div>
+            <h1>Write back to a customer</h1>
+          </div>
+
+          <div class="thread">
+            <div class="bubble in">
+              <div class="who">Customer's review</div>
+              <textarea class="reviewinput" id="review" placeholder="Paste what the customer wrote here…"></textarea>
+              <div class="stars" id="stars">
+                <button class="star filled" data-v="1" title="1 star"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.7-5.4 4.8 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.3l7.1-.7z"/></svg></button>
+                <button class="star filled" data-v="2" title="2 stars"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.7-5.4 4.8 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.3l7.1-.7z"/></svg></button>
+                <button class="star filled" data-v="3" title="3 stars"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.7-5.4 4.8 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.3l7.1-.7z"/></svg></button>
+                <button class="star filled" data-v="4" title="4 stars"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.7-5.4 4.8 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.3l7.1-.7z"/></svg></button>
+                <button class="star filled" data-v="5" title="5 stars"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.7-5.4 4.8 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.3l7.1-.7z"/></svg></button>
+              </div>
+            </div>
+
+            <div class="composerow">
+              <button class="generate" id="genBtn" onclick="generate()"><span class="spin"></span><span id="genLabel">Write reply</span></button>
+            </div>
+
+            <div class="bubble out">
+              <div class="who">Your reply</div>
+              <div class="replytext placeholder" id="result">Your reply will land here once you write one.</div>
+              <div class="bubble-foot">
+                <button class="copy" onclick="copyReply()">Copy reply</button>
+                <div class="status" id="status">Choose a review to get started.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="voicebar" id="voiceBar"></div>
+
+          <div class="examplesrow">
+            <div class="exlabel">No review handy? Try one of these —</div>
+            <div class="exchips">
+              <button class="exchip" onclick="fillExample(5)"><span class="exstars">★★★★★</span> A rave review</button>
+              <button class="exchip" onclick="fillExample(3)"><span class="exstars">★★★☆☆</span> A mixed review</button>
+              <button class="exchip" onclick="fillExample(1)"><span class="exstars">★☆☆☆☆</span> A complaint</button>
+            </div>
+          </div>
+
+          <div class="howrow">
+            <div class="how-item">
+              <div class="how-num">1</div>
+              <div><h4>Paste the review</h4><p>Drop in exactly what the customer wrote, star rating included.</p></div>
+            </div>
+            <div class="how-item">
+              <div class="how-num">2</div>
+              <div><h4>Rivo matches your voice</h4><p>It writes in the tone you picked during setup — not a generic template.</p></div>
+            </div>
+            <div class="how-item">
+              <div class="how-num">3</div>
+              <div><h4>Copy it over</h4><p>Paste the finished reply straight onto Google, Yelp, or wherever it's needed.</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Team view: prototype login + leadership directory -->
+      <div class="view" id="view-team">
+        <div id="teamLoginGate">
+          <div class="loginwrap">
+            <h2>Log in to Rivo</h2>
+            <p class="hint">Team directory access for your organization.</p>
+            <label for="loginEmail">Email</label>
+            <input id="loginEmail" type="email" placeholder="you@yourbusiness.com">
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" type="password" placeholder="••••••••">
+            <div class="actions"><span></span><button class="next" onclick="mockLogin()" style="width:100%">Sign in</button></div>
+            <p class="protonote">Design prototype — this screen is not wired to a real account yet. Enter anything to continue.</p>
+          </div>
+        </div>
+        <div id="teamDirectory" style="display:none">
+          <div class="teamhead">
+            <div><div class="label" style="color:var(--muted);font-weight:600;font-size:13px;margin-bottom:5px">Your organization</div><h1 style="margin:0;font-size:24px">Leadership directory</h1></div>
+            <button class="signout" onclick="mockLogout()">Log out</button>
+          </div>
+          <div class="teamgrid" id="teamGrid"></div>
+        </div>
+      </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="settingsDialog">
+    <div class="dialog-body">
+      <h3>Server settings</h3>
+      <p>Rivo needs the address of the backend server that holds the AI key. You only need to set this once per device.</p>
+      <label for="settingsUrl">Server URL</label>
+      <input id="settingsUrl" placeholder="https://your-rivo-backend.onrender.com">
+      <div class="actions"><button class="back" onclick="document.getElementById('settingsDialog').close()">Cancel</button><button class="next" onclick="saveSettings()">Save</button></div>
+    </div>
+  </dialog>
+
+  <script>
+    // Baked-in backend so Rivo works with zero setup for anyone who opens this page.
+    // Change this if you ever redeploy the backend to a new URL.
+    const DEFAULT_SERVER_URL = 'https://replymate-bkap.onrender.com';
+
+    let tone='Friendly', current=0, ratingValue=5;
+    const qs=[...document.querySelectorAll('.question')], bars=[...document.querySelectorAll('.step')];
+    const stepLabel=document.getElementById('stepLabel');
+    function go(n){
+      if(n===1&&!business.value.trim()){business.focus();business.placeholder='Please add your business type first';return}
+      current=n;
+      qs.forEach((q,i)=>q.classList.toggle('active',i===n));
+      bars.forEach((b,i)=>b.classList.toggle('on',i<=n));
+      stepLabel.textContent='Step '+(n+1)+' of 3';
+    }
+    document.querySelectorAll('#tones .option').forEach(x=>x.onclick=()=>{document.querySelectorAll('#tones .option').forEach(y=>y.classList.remove('selected'));x.classList.add('selected');tone=x.dataset.value});
+
+    // ---- Star rating ----
+    const starBtns=[...document.querySelectorAll('#stars .star')];
+    function paintStars(v){ starBtns.forEach(b=>b.classList.toggle('filled', +b.dataset.v<=v)); }
+    starBtns.forEach(b=>{
+      b.addEventListener('click',()=>{ ratingValue=+b.dataset.v; paintStars(ratingValue); });
+      b.addEventListener('mouseenter',()=>paintStars(+b.dataset.v));
+    });
+    document.getElementById('stars').addEventListener('mouseleave',()=>paintStars(ratingValue));
+
+    function normalizeUrl(u){ u=(u||'').trim(); if(!u) return ''; return u.replace(/\/+$/,''); }
+
+    // ---- Example reviews, for trying Rivo without a real one on hand ----
+    const EXAMPLES = {
+      5: "Our stay was amazing from start to finish — the staff remembered our names and the breakfast spread was incredible. Already planning our next visit!",
+      3: "Room was clean and comfortable, but check-in took almost 40 minutes and nobody apologized for the wait.",
+      1: "Booked a quiet room and got one right next to the elevator. Asked to switch and was told nothing was available. Not what I expected for the price."
+    };
+    function fillExample(n){
+      review.value = EXAMPLES[n];
+      ratingValue = n;
+      paintStars(n);
+      review.focus();
+    }
+
+    function start(){
+      const profile={business:business.value.trim(),examples:examples.value.trim(),tone};
+      try{localStorage.setItem('rivoProfile',JSON.stringify(profile));}catch(e){}
+      openApp(profile);
+    }
+    function renderVoiceBar(p){
+      const bar=document.getElementById('voiceBar');
+      const chips=[
+        '<span class="sw"></span>Business: <b>'+(p.business||'—')+'</b>',
+        '<span class="sw"></span>Tone: <b>'+(p.tone||'Friendly')+'</b>',
+        '<span class="sw"></span>'+(p.examples&&p.examples.trim() ? 'Matching your <b>own voice</b>' : 'Using the <b>default voice</b>')
+      ];
+      bar.innerHTML = chips.map(c=>'<div class="chip">'+c+'</div>').join('');
+    }
+    function openApp(p, skipAnim){
+      const setupEl=document.getElementById('setup'), appEl=document.getElementById('app');
+      businessLabel.textContent=p.business;
+      renderVoiceBar(p);
+      if(skipAnim){ setupEl.style.display='none'; appEl.style.display='block'; return; }
+      setupEl.style.transition='opacity .35s var(--ease), transform .35s var(--ease)';
+      setupEl.style.opacity='0'; setupEl.style.transform='translateY(-8px)';
+      setTimeout(()=>{
+        setupEl.style.display='none';
+        appEl.style.display='block';
+        appEl.style.opacity='0'; appEl.style.transform='translateY(8px)';
+        appEl.style.transition='opacity .45s var(--ease), transform .45s var(--ease)';
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{ appEl.style.opacity='1'; appEl.style.transform='translateY(0)'; }));
+      }, 300);
+    }
+
+    function getProfile(){ try{return JSON.parse(localStorage.getItem('rivoProfile'))||{};}catch(e){return {};} }
+    function getServerUrl(){ const p=getProfile(); return p.serverUrl || DEFAULT_SERVER_URL; }
+
+    function openSettings(){ document.getElementById('settingsUrl').value = getServerUrl(); document.getElementById('settingsDialog').showModal(); }
+    function saveSettings(){ const p=getProfile(); p.serverUrl = normalizeUrl(document.getElementById('settingsUrl').value); try{localStorage.setItem('rivoProfile',JSON.stringify(p));}catch(e){} document.getElementById('settingsDialog').close(); }
+
+    // ---- Nav between Replies / Team views ----
+    function showView(name){
+      document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+      document.getElementById('view-'+name).classList.add('active');
+      document.getElementById('navReplies').classList.toggle('active', name==='replies');
+      document.getElementById('navTeam').classList.toggle('active', name==='team');
+    }
+
+    // ---- Team directory: prototype-only mock login (no real auth) ----
+    const TEAM = [
+      { name:'Mina Cho', role:'Co-founder & CEO', initials:'MC', bio:'Leads overall strategy and partnerships. Previously ran operations at a regional hospitality group.' },
+      { name:'Dale Whitfield', role:'Head of Product', initials:'DW', bio:'Shapes the Rivo roadmap and works directly with early customers on what to build next.' },
+      { name:'Priya Narayan', role:'Head of Customer Success', initials:'PN', bio:'Helps new businesses get set up and makes sure every account is getting real value.' },
+      { name:'Tomas Reyes', role:'Engineering Lead', initials:'TR', bio:'Owns the platform reliability and the AI pipeline behind every generated reply.' }
+    ];
+    function renderTeam(){
+      document.getElementById('teamGrid').innerHTML = TEAM.map(function(m){
+        return '<div class="leader">'
+          + '<div class="avatar">'+m.initials+'</div>'
+          + '<div><h4>'+m.name+'</h4><div class="role">'+m.role+'</div><p>'+m.bio+'</p></div>'
+          + '</div>';
+      }).join('');
+    }
+    function crossfadeSwap(hideEl, showEl, showDisplay){
+      hideEl.style.transition='opacity .3s var(--ease), transform .3s var(--ease)';
+      hideEl.style.opacity='0'; hideEl.style.transform='translateY(-6px)';
+      setTimeout(()=>{
+        hideEl.style.display='none';
+        showEl.style.display=showDisplay;
+        showEl.style.opacity='0'; showEl.style.transform='translateY(6px)';
+        showEl.style.transition='opacity .4s var(--ease), transform .4s var(--ease)';
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{ showEl.style.opacity='1'; showEl.style.transform='translateY(0)'; }));
+      }, 260);
+    }
+    function mockLogin(){
+      renderTeam();
+      crossfadeSwap(document.getElementById('teamLoginGate'), document.getElementById('teamDirectory'), 'block');
+      try{localStorage.setItem('rivoMockLoggedIn','1');}catch(e){}
+    }
+    function mockLogout(){
+      crossfadeSwap(document.getElementById('teamDirectory'), document.getElementById('teamLoginGate'), 'block');
+      try{localStorage.removeItem('rivoMockLoggedIn');}catch(e){}
+    }
+
+    async function generate(){
+      const text = review.value.trim();
+      const p = getProfile();
+      const statusEl = document.getElementById('status');
+      const resultEl = document.getElementById('result');
+      const btn = document.getElementById('genBtn');
+      const label = document.getElementById('genLabel');
+
+      if(!text){ review.focus(); return; }
+      const serverUrl = getServerUrl();
+
+      btn.disabled = true; btn.classList.add('loading'); label.textContent = 'Writing…';
+      statusEl.textContent = ''; statusEl.className = 'status';
+
+      try{
+        const res = await fetch(serverUrl + '/generate', {
+          method:'POST',
+          headers:{'content-type':'application/json'},
+          body: JSON.stringify({ review:text, rating: ratingValue, business:p.business, tone:p.tone, examples:p.examples })
+        });
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok){
+          statusEl.textContent = data.error || ('Server error (' + res.status + ')');
+          statusEl.className = 'status err';
+          return;
+        }
+        resultEl.textContent = data.reply || '(empty response)';
+        resultEl.classList.remove('placeholder');
+        resultEl.style.animation='none'; void resultEl.offsetWidth; resultEl.style.animation='in .4s var(--ease)';
+        statusEl.textContent = 'Written in your ' + (p.tone||'Friendly').toLowerCase() + ' voice.';
+      }catch(e){
+        statusEl.textContent = "Couldn't reach the server right now. It may be waking up from sleep — wait about a minute and try again.";
+        statusEl.className = 'status err';
+      }finally{
+        btn.disabled = false; btn.classList.remove('loading'); label.textContent = 'Write reply';
+      }
+    }
+
+    function copyReply(){navigator.clipboard?.writeText(result.textContent);status.textContent='Copied to your clipboard.';status.className='status'}
+    function resetApp(){
+      const appEl=document.getElementById('app'), setupEl=document.getElementById('setup');
+      appEl.style.transition='opacity .3s var(--ease), transform .3s var(--ease)';
+      appEl.style.opacity='0'; appEl.style.transform='translateY(-8px)';
+      setTimeout(()=>{
+        appEl.style.display='none';
+        setupEl.style.display='flex';
+        setupEl.style.opacity='0'; setupEl.style.transform='translateY(8px)';
+        setupEl.style.transition='opacity .4s var(--ease), transform .4s var(--ease)';
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{ setupEl.style.opacity='1'; setupEl.style.transform='translateY(0)'; }));
+        go(0);
+      }, 260);
+    }
+
+    let saved; try{saved=localStorage.getItem('rivoProfile');}catch(e){saved=null}
+    if(saved) { try{const p=JSON.parse(saved); if(p.business){ business.value=p.business; examples.value=p.examples||''; tone=p.tone||'Friendly'; openApp(p, true); } }catch(e){} }
+    try{ if(localStorage.getItem('rivoMockLoggedIn')==='1'){ /* stay logged out by default each visit for a clean demo */ } }catch(e){}
+  </script>
+</body>
+</html>
